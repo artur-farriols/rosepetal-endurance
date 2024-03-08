@@ -1,0 +1,14 @@
+{
+    "model_config": {
+      "image_dimensions": {
+        "width": 550,
+        "height": 400,
+        "channels": 3
+      },
+      "classes": {
+        "0": "joint",
+        "1":"missing",
+        "2": "stacker"
+      }
+    }
+  }

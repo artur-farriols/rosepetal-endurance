@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package endurance;
+
+// MESSAGE OBJECTS
+
+message SharedMemoryHandle {
+  string name = 1;   // The name of the shared memory
+  string size = 2;   // The size of the data
+  string offset = 3; // The offset, provided as a string
+}
+
+message Bitmap {
+  int32 width = 1;                   
+  int32 height = 2;                 
+  SharedMemoryHandle shared_memory_handle = 3;
+}
+
+message BoundingBox {
+  int32 x1 = 1;
+  int32 y1 = 2;
+  int32 x2 = 3;
+  int32 y2 = 4;
+}
+
+message AnomalyMaskParams {
+  SharedMemoryHandle shared_memory_handle = 1;
+}
+
+message ImageSharedMemory {
+  string model_component = 1;
+  Bitmap bitmap = 2;
+  AnomalyMaskParams anomaly_mask_params = 3;
+}
+
+message Prediction {
+  repeated BoundingBox boxes = 1;
+  repeated string classes = 2;
+  repeated float scores = 3;
+  string name = 4; // Image name
+}
+
+message PytorchModel {
+    bytes model = 1;
+}
+
+// REQUESTS
+
+message DefaultRequest {
+  string model_name = 1;
+}
+
+message ToggleRequest {
+  bool active = 1;
+}
+
+message PredictRequest {
+  ImageSharedMemory image = 1;
+  string model_name = 2;
+  bool invert_channels = 3;
+  map<string, float> scores = 4;
+}
+
+message AddModelRequest {
+  string model_name = 1;
+  bytes model_info = 2;
+  PytorchModel model = 3;
+}
+
+message LoadModelRequest {
+  string model_name = 1;
+  map<string, float> scores = 2;
+}
+
+message ListModelsRequest {}
+
+// RESPONSES
+
+message DefaultResponse {
+  bool done = 1;
+}
+
+message PredictResponse {
+  Prediction prediction = 1;
+}
+
+message ListModelsResponse {
+    string models = 1;
+}
+
+// SERVICE
+
+service EnduranceService {
+  rpc predict(PredictRequest) returns (PredictResponse);
+  rpc add_model(AddModelRequest) returns (DefaultResponse);
+  rpc load_model(LoadModelRequest) returns (DefaultResponse);
+  rpc delete_model(DefaultRequest) returns (DefaultResponse);
+  rpc list_models(ListModelsRequest) returns (ListModelsResponse);
+  rpc toggle_logger(ToggleRequest) returns (DefaultResponse);
+}
