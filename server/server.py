@@ -183,6 +183,7 @@ class EnduranceService(endurance_pb2_grpc.EnduranceServiceServicer):
         print('BBB', results[0].orig_shape)
         original_height, original_width = results[0].orig_shape
         compressed_masks = []
+        print(original_height, original_width)
 
         for counter, result in enumerate(results):
 
@@ -192,48 +193,57 @@ class EnduranceService(endurance_pb2_grpc.EnduranceServiceServicer):
             print(dir(result.masks))
             print(result.masks)
 
-            masks = result.masks.data.cpu().numpy()
+            masks = result.masks.data.cpu().numpy() if result.masks is not None else None
 
-            # if len()
-            print(len(result.masks))
-            print(result.masks.shape)
-            compressed_mask = np.zeros((result.masks.shape[1:]),dtype=np.uint8)
-            compressed_mask = np.stack([compressed_mask, compressed_mask, compressed_mask], axis=-1)
+            if masks is not None:
+                print("YEPA")
+                print(len(result.masks))
+                print(result.masks.shape)
+                compressed_mask = np.zeros((result.masks.shape[1:]),dtype=np.uint8)
+                compressed_mask = np.stack([compressed_mask, compressed_mask, compressed_mask], axis=-1)
 
-            predictions = result.boxes.data.cpu().numpy()
+                predictions = result.boxes.data.cpu().numpy()
 
-            filtered_predictions = []
-            filtered_predictions, filtered_masks = self._filter_predictions(predictions, masks)
-            # for prediction, mask in zip(predictions, masks):
+                filtered_predictions = []
+                filtered_predictions, filtered_masks = self._filter_predictions(predictions, masks)
+                # for prediction, mask in zip(predictions, masks):
 
-            bounding_boxes = [row[:4] for row in predictions]
-            bounding_boxes = [[round(element) for element in row] for row in bounding_boxes]
-            scores = [row[4] for row in predictions]
-            classes = [row[5] for row in predictions]
-            classes_str = [classes_dict[number] for number in classes]
-            print(classes_str)
- 
-            for j, bounding_box in enumerate(bounding_boxes):
-                x1, y1, x2, y2 = bounding_box
-                y1 += counter * 550
-                x2 += counter * 550
-                y2 += counter * 550
-                score = scores[j]
-                class_name = classes_str[j]
+                bounding_boxes = [row[:4] for row in predictions]
+                bounding_boxes = [[round(element) for element in row] for row in bounding_boxes]
+                scores = [row[4] for row in predictions]
+                classes = [row[5] for row in predictions]
+                classes_str = [classes_dict[number] for number in classes]
+                print(classes_str)
+    
+                for j, bounding_box in enumerate(bounding_boxes):
+                    x1, y1, x2, y2 = bounding_box
+                    y1 += counter * 550
+                    x2 += counter * 550
+                    y2 += counter * 550
+                    score = scores[j]
+                    class_name = classes_str[j]
 
-                box = endurance_pb2.BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2)
-                prediction.boxes.append(box)
-                prediction.classes.append(class_name)
-                prediction.scores.append(score)
+                    box = endurance_pb2.BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2)
+                    prediction.boxes.append(box)
+                    prediction.classes.append(class_name)
+                    prediction.scores.append(score)
 
-            for mask, class_number in zip(masks, classes):
-                # mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
-                compressed_mask[mask == 1] = SI.COLOR_PALETTE[class_number]
+                for mask, class_number in zip(masks, classes):
+                    # mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
+                    compressed_mask[mask == 0] = SI.BACKGROUND_COLOR
+                    compressed_mask[mask == 1] = SI.COLOR_PALETTE[class_number]
+                
+                compressed_mask = cv2.resize(compressed_mask, (original_width, original_height))
+                
+                # compressed_mask = cv2.cvtColor(compressed_mask, cv2.COLOR_GRAY2RGB)
+                # compressed_masks.append(compressed_mask)        
+                
+            else:    
+                print("YEPINS")
+                compressed_mask = np.ones((original_height, original_width),dtype=np.uint8) * 255
+                compressed_mask = np.stack([compressed_mask, compressed_mask, compressed_mask], axis=-1)
             
-            compressed_mask = cv2.resize(compressed_mask, (original_width, original_height))
-            
-            # compressed_mask = cv2.cvtColor(compressed_mask, cv2.COLOR_GRAY2RGB)
-            compressed_masks.append(compressed_mask)            
+            compressed_masks.append(compressed_mask)
 
         processed_results = endurance_pb2.PredictResponse()
         processed_results.prediction.CopyFrom(prediction)
